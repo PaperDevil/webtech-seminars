@@ -1,10 +1,15 @@
 import math
 
-from django.shortcuts import render
-from django.views.generic import TemplateView
-from django.http import JsonResponse, HttpResponse
+from django.contrib.auth import login, logout
+from django.contrib import messages
+from django.shortcuts import render, redirect
+from django.views.generic import TemplateView, CreateView
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.cache import never_cache
+from django.utils.decorators import method_decorator
 
 from core.models import Question, Tag
+from core.forms import LoginForm, QuestionForm
 
 
 # Create your views here.
@@ -13,7 +18,8 @@ def index(request):
 
     return render(request, 'core/index.html')
 
-
+@method_decorator(login_required, name='dispatch')
+@method_decorator(never_cache, name='dispatch')
 class IndexView(TemplateView):
     http_method_names = ['get',]
     template_name = 'core/index.html'
@@ -21,7 +27,7 @@ class IndexView(TemplateView):
 
     def get_questions(self, tag = None):
         if tag is None:
-            return Question.objects.all()
+            return Question.objects.all().order_by('-id')
 
         return Question.objects.filter(tags__title__in=[tag])
 
@@ -47,6 +53,49 @@ class IndexView(TemplateView):
         context['tags'] = Tag.objects.all()
         return context
 
-    def dispatch(self, request, *args, **kwargs):
-        print(request)
-        return super(IndexView, self).dispatch(request, *args, **kwargs)
+@method_decorator(login_required, name='dispatch')
+class CreateQuestionView(TemplateView):
+    http_method_names = ['get', 'post']
+    template_name = 'core/create_question_template.html'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['form'] = QuestionForm()
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = QuestionForm(request.POST)
+        if form.is_valid():
+            question = form.save(commit=False)
+            question.author = request.user
+            question.save()
+            return redirect('index')
+
+        return render(request, 'core/create_question_template.html', {'form': form})
+
+class AuthView(TemplateView):
+    http_method_names = ['get', 'post']
+    template_name = 'core/login_template.html'
+
+    def get_context_data(self, **kwargs):
+        form = LoginForm()
+        context = super(AuthView, self).get_context_data(**kwargs)
+        context['form'] = form
+        return context
+
+    def post(self, request, *args, **kwargs):
+        form = LoginForm(request.POST)
+        if form.is_valid():
+            login(request, form.user)
+            messages.add_message(request, messages.SUCCESS, "Вы успешно авторизованы в вашем аккаунте")
+            return redirect('/')
+
+        return render(request, 'core/login_template.html', {
+            'form': form
+        })
+
+@login_required()
+def logout_view(request):
+    if request.method == 'POST':
+        logout(request)
+    return redirect('/')

@@ -46,7 +46,8 @@ INSTALLED_APPS = [
 
 # Что я сам написал
 INSTALLED_APPS += [
-    'core'
+    'core',
+    'testings'
 ]
 
 MIDDLEWARE = [
@@ -110,7 +111,16 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTH_USER_MODEL = 'core.User'
+AUTHENTICATION_BACKENDS = [
+    'django.contrib.auth.backends.ModelBackend',
+]
 
+LOGIN_URL = '/login/'
+LOGIN_REDIRECT_URL = '/'
+LOGOUT_REDIRECT_URL = '/'
+
+# SESSION_COOKIE_AGE = 1209600  # 2 недели
+# SESSION_EXPIRE_AT_BROWSER_CLOSE = False  # Сессия не expires при закрытии браузера
 
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/

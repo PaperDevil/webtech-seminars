@@ -25,19 +25,34 @@
         <div class="profile">
             <div class="avatar"></div>
             <div class="profile-info">
-                <p>FIO</p>
+                <p>{{ user.username }}</p>
                 <div class="profile-actions">
                     <a href="#">settings</a>
-                    <a href="#">logout</a>
+                    <form method="POST" action="{% url 'logout' %}">
+                        {% csrf_token %}
+                        <button type="submit">logout</button>
+                    </form>
                 </div>
             </div>
         </div>
     </header>
     <main>
         <div class="main-container">
+            <!-- Сообщения -->
+            {% if messages %}
+            <div class="messages">
+                {% for message in messages %}
+                <div class="alert alert-{{ message.tags }}">
+                    {{ message }}
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+
             <h2>
                 New Questions
                 <span><a href="#">Hot Questions</a></span>
+                <a href="{% url 'create_question' %}" style="margin-left: auto">Создать вопрос</a>
             </h2>
             <div class="questions-list">
                 {% for question in new_questions %}
