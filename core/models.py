@@ -2,6 +2,8 @@ from django.db import models
 from django.utils.text import slugify
 from django.contrib.auth.models import AbstractUser
 
+from core.managers import QuestionManager
+
 
 class DefaultModel(models.Model):
     class Meta:
@@ -28,8 +30,13 @@ class Question(DefaultModel):
     slug = models.SlugField(max_length=200, unique=True, null=True, blank=True)
     title = models.CharField(max_length=200)
     detailed = models.TextField()
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='authored_questions')
     tags = models.ManyToManyField('Tag', blank=True, verbose_name="Теги")
+    cover = models.ImageField(upload_to='covers', null=True, blank=True)
+
+    likes = models.ManyToManyField(User, through='QuestionLike', blank=True)
+    rating = models.PositiveIntegerField(default=0)
+    objects_likes = QuestionManager()
 
     def __str__(self):
         return str(self.title)
@@ -45,8 +52,11 @@ class Answer(DefaultModel):
         verbose_name_plural = 'Ответы'
 
     question = models.ForeignKey(Question, on_delete=models.CASCADE)
-    author = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='authored_answers')
     answer_text = models.TextField()
+
+    likes = models.ManyToManyField(User, through='AnswerLike', blank=True)
+    rating = models.PositiveIntegerField(default=0)
 
     def __str__(self):
         return "Ответ на вопрос ID=" + str(self.question_id)
@@ -61,3 +71,22 @@ class Tag(models.Model):
 
     def __str__(self):
         return self.title
+
+
+class QuestionLike(DefaultModel):
+    class Meta:
+        verbose_name = "Лайки вопросов"
+        unique_together = ('question', 'author')
+
+    question = models.ForeignKey(Question, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='liked_questions')
+    is_like = models.BooleanField(default=True)
+
+
+class AnswerLike(DefaultModel):
+    class Meta:
+        verbose_name = "Лайки ответов"
+        unique_together = ('answer', 'author')
+
+    answer = models.ForeignKey(Answer, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE, related_name='liked_answers')

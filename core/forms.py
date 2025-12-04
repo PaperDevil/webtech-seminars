@@ -1,6 +1,7 @@
 from django import forms
 from django.contrib.auth import authenticate
 from django.forms.widgets import PasswordInput
+from django.forms.widgets import FileInput
 
 from core.models import Question
 
@@ -39,6 +40,8 @@ class LoginForm(forms.Form):
 
 
 class QuestionForm(forms.ModelForm):
+    image = forms.ImageField(widget=FileInput, required=False)
+
     class Meta:
         model = Question
         fields = ('title', 'detailed')

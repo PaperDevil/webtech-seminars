@@ -1,14 +1,18 @@
+import json
 import math
 
 from django.contrib.auth import login, logout
 from django.contrib import messages
-from django.shortcuts import render, redirect
+from django.http import Http404, JsonResponse
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views import View
+from django.views.decorators.csrf import csrf_exempt
 from django.views.generic import TemplateView, CreateView
 from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.utils.decorators import method_decorator
 
-from core.models import Question, Tag
+from core.models import Question, Tag, QuestionLike, AnswerLike, Answer
 from core.forms import LoginForm, QuestionForm
 
 
@@ -68,6 +72,7 @@ class CreateQuestionView(TemplateView):
         if form.is_valid():
             question = form.save(commit=False)
             question.author = request.user
+            question.cover = request.FILES['image']
             question.save()
             return redirect('index')
 
@@ -99,3 +104,63 @@ def logout_view(request):
     if request.method == 'POST':
         logout(request)
     return redirect('/')
+
+
+@method_decorator(login_required, name='dispatch')
+@method_decorator(csrf_exempt, name='dispatch')
+class QuestionLikeAPIView(View):
+    http_method_names = ['post']
+
+    def post(self, request, *args, **kwargs):
+        question_id = kwargs.get('pk')
+        is_like = json.loads(request.body.decode('utf-8')).get('is_like', True)
+        question = get_object_or_404(Question, pk=question_id)
+        if question.author == request.user:
+            return JsonResponse({
+                'success': False,
+                'error': "Вы являетесь автором вопроса."
+            }, status=400)
+
+        like_exists = QuestionLike.objects.filter(author=request.user, question_id=question_id).first()
+        if like_exists and like_exists.is_like != is_like:
+            like_exists.is_like = is_like
+            like_exists.save(update_fields=['is_like'])
+            question.rating += 1 if is_like else -1
+            question.save(update_fields=['rating'])
+
+        if like_exists:
+            return JsonResponse({
+                'success': True,
+                'id': like_exists.id,
+                'rating': question.rating,
+            }, status=200)
+
+        like = QuestionLike.objects.create(author=request.user, question_id=question_id, is_like=is_like)
+        question.rating += 1 if is_like else -1
+        question.save(update_fields=['rating', 'updated_at'])
+        return JsonResponse({
+            'success': True,
+            'id': like.id,
+            'rating': question.rating,
+        }, status=201)
+
+
+class AnswerLikeAPIView(View):
+    http_method_names = ['post']
+
+    def post(self, request, *args, **kwargs):
+        answer_id = request.POST.get('pk')
+        answer = get_object_or_404(Answer, pk=answer_id)
+        if answer.author == request.user:
+            return JsonResponse({
+                'success': False,
+                'error': "Вы являетесь автором ответа."
+            }, status=400)
+
+        like, created = AnswerLike.objects.get_or_create(author=request.user, answer_id=answer_id)
+        answer.rating += 1
+        answer.save(update_fields=['rating'])
+        return JsonResponse({
+            'success': True,
+            'id': like.id,
+        }, status=201 if created else 200)
