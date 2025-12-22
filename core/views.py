@@ -1,9 +1,12 @@
 import json
 import math
 
+from django.conf import settings
 from django.contrib.auth import login, logout
 from django.contrib import messages
-from django.http import Http404, JsonResponse
+from django.core.cache import cache
+from django.core.mail import send_mail
+from django.http import Http404, JsonResponse, HttpResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views import View
 from django.views.decorators.csrf import csrf_exempt
@@ -12,6 +15,8 @@ from django.contrib.auth.decorators import login_required
 from django.views.decorators.cache import never_cache
 from django.utils.decorators import method_decorator
 
+from core.burst import BurstMixin
+from core.caches import TagCache
 from core.models import Question, Tag, QuestionLike, AnswerLike, Answer
 from core.forms import LoginForm, QuestionForm
 
@@ -23,7 +28,7 @@ def index(request):
     return render(request, 'core/index.html')
 
 @method_decorator(login_required, name='dispatch')
-@method_decorator(never_cache, name='dispatch')
+# @method_decorator(never_cache, name='dispatch')
 class IndexView(TemplateView):
     http_method_names = ['get',]
     template_name = 'core/index.html'
@@ -36,7 +41,7 @@ class IndexView(TemplateView):
         return Question.objects.filter(tags__title__in=[tag])
 
     def get_tags(self):
-        return Tag.objects.all()
+        return TagCache.get_items()
 
     def get_context_data(self, **kwargs):
         context = super(IndexView, self).get_context_data(**kwargs)
@@ -54,26 +59,36 @@ class IndexView(TemplateView):
             context['new_questions'] = questions[page * self.QUESTIONS_PER_PAGE:(page * self.QUESTIONS_PER_PAGE) + self.QUESTIONS_PER_PAGE]
 
 
-        context['tags'] = Tag.objects.all()
+        context['tags'] = self.get_tags()
         return context
 
 @method_decorator(login_required, name='dispatch')
-class CreateQuestionView(TemplateView):
+class CreateQuestionView(BurstMixin, TemplateView):
     http_method_names = ['get', 'post']
     template_name = 'core/create_question_template.html'
+    limits = {'minute': 1, 'hour': 10, 'day': 50}
+    burst_codes = [301, 302]
+    burst_error_code = 429
+    burst_key = 'create_question'
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['form'] = QuestionForm()
         return context
 
+    def get_burst_error_response(self, request):
+        messages.add_message(request, message=self.burst_error_msg, level=messages.ERROR)
+        return redirect('/')
+
     def post(self, request, *args, **kwargs):
         form = QuestionForm(request.POST)
         if form.is_valid():
             question = form.save(commit=False)
             question.author = request.user
-            question.cover = request.FILES['image']
+            if request.FILES and 'image' in request.FILES:
+                question.cover = request.FILES['image']
             question.save()
+            send_mail('Создан новый вопрос на портале', 'ссылка на вопрос / ссылка на админку', settings.SENDER_EMAIL, [settings.SENDER_EMAIL])
             return redirect('index')
 
         return render(request, 'core/create_question_template.html', {'form': form})
@@ -164,3 +179,25 @@ class AnswerLikeAPIView(View):
             'success': True,
             'id': like.id,
         }, status=201 if created else 200)
+
+
+class DjangoCacheView(TemplateView):
+    http_method_names = ['get', 'post']
+    template_name = 'core/cache_form.html'
+
+    def get_context_data(self, key, **kwargs):
+        context = super(DjangoCacheView, self).get_context_data(**kwargs)
+        value = cache.get(key)
+        context['current_value'] = value
+        return context
+
+    def post(self, request, key, *args, **kwargs):
+        value = request.POST.get('value', None)
+        if not value:
+            return JsonResponse({
+                'success': False,
+                'error': 'Обязательно нужно передать значение'
+            }, status=400)
+
+        cache.set(key, value)
+        return redirect('cache', key=key)

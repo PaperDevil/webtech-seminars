@@ -36,7 +36,8 @@ class Question(DefaultModel):
 
     likes = models.ManyToManyField(User, through='QuestionLike', blank=True)
     rating = models.PositiveIntegerField(default=0)
-    objects_likes = QuestionManager()
+
+    objects = QuestionManager()
 
     def __str__(self):
         return str(self.title)

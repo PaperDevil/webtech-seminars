@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Test cache</title>
+</head>
+<body>
+    <h2>Тестирование кешей</h2>
+    {% if current_value %}
+        <p>Текущее значение: <span>{{ current_value }}</span></p>
+    {% endif %}
+    <form method="POST">
+        {% csrf_token %}
+        <input type="text" name="value" placeholder="Значение для кеша">
+        <button type="submit">Записать</button>
+    </form>
+</body>
+</html>

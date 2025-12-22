@@ -1,0 +1,25 @@
+{
+  "client": {
+    "token": {
+      "hmac_secret_key": "dRMmPyUZPXCb"
+    },
+    "allowed_origins": []
+  },
+  "http_api": {
+    "key": "RtYz5GoqVqJ5"
+  },
+  "http_server": {
+    "address": "localhost",
+    "port": 8035
+  },
+  "admin": {
+    "enabled": true,
+    "password": "123",
+    "secret": "dRMmPyUZPXCb"
+  },
+  "channel": {
+    "namespaces": [
+      {"name": "answers"}
+    ]
+  }
+}

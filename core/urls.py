@@ -4,7 +4,7 @@ from django.views.generic import DetailView
 from core.views import (
     IndexView, AuthView,
     logout_view, CreateQuestionView,
-    QuestionLikeAPIView, AnswerLikeAPIView
+    QuestionLikeAPIView, AnswerLikeAPIView, DjangoCacheView
 )
 
 urlpatterns = [
@@ -16,4 +16,6 @@ urlpatterns = [
     path('api/question/<int:pk>/toggle_like', QuestionLikeAPIView.as_view(), name='like_question'),
     path('api/answer/<int:pk>/like', AnswerLikeAPIView.as_view(), name='like'),
     # path('api/answer/<int:pk>/dislike', QuestionLike.as_view(), name='unlike'),
+
+    path('cache/<str:key>/', DjangoCacheView.as_view(), name='cache'),
 ]

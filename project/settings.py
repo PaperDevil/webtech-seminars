@@ -47,7 +47,8 @@ INSTALLED_APPS = [
 # Что я сам написал
 INSTALLED_APPS += [
     'core',
-    'testings'
+    'testings',
+    'centrifuge'
 ]
 
 MIDDLEWARE = [
@@ -87,8 +88,12 @@ WSGI_APPLICATION = 'project.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': 'seminar_2',      # The name of your PostgreSQL database
+        'USER': 'admin',  # The username to connect with
+        'PASSWORD': 'admin', # The password for the user
+        'HOST': 'localhost',         # The database server hostname or IP
+        'PORT': '5432',              # The PostgreSQL port (default is 5432)
     }
 }
 
@@ -148,3 +153,37 @@ MEDIA_ROOT = BASE_DIR / 'media'
 # https://docs.djangoproject.com/en/4.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+CACHES = {
+    "default": {
+        "BACKEND": "django_redis.cache.RedisCache",
+        "LOCATION": config.get('redis', 'LOCATION', fallback='redis://localhost:6379/1'),
+        'TIMEOUT': config.getint('redis', 'LIFETIME', fallback=9660),
+        "OPTIONS": {
+            "CLIENT_CLASS": "django_redis.client.DefaultClient",
+        },
+        "KEY_PREFIX": config.get('redis', 'PREFIX', fallback='seminar') # Optional: add a prefix to all cache keys
+    }
+}
+
+
+# Centrifugo
+
+CENTRIFUGE_HOST = config.get('centrifuge', 'HOST', fallback='http://localhost:8035')
+CENTRIFUGE_URL = config.get('centrifuge', 'URL', fallback='/centrifuge')
+CENTRIFUGE_API_KEY = config.get('centrifuge', 'API_KEY', fallback='')
+CENTRIFUGE_SECRET = config.get('centrifuge', 'SECRET', fallback='')
+CENTRIFUGE_TOKEN_EXPIRE = config.getint('centrifuge', 'TOKEN_EXPIRE', fallback=120 * 60)
+CENTRIFUGE_TIMEOUT = config.getint('centrifuge', 'TIMEOUT', fallback=1)
+CENTRIFUGE_ENABLED = config.getboolean('centrifuge', 'ENABLED', fallback=False)
+
+# Mailing
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = config.get('smtp', 'HOST', fallback='127.0.0.1')
+EMAIL_PORT = config.getint('smtp', 'PORT', fallback=1025)
+SENDER_EMAIL = config.get('smtp', 'SENDER_EMAIL')
+SERVER_EMAIL = SENDER_EMAIL
+UNSUBSCRIBE_TOKEN = config.get('smtp', 'UNSUBSCRIBE_TOKEN', fallback='!SECRET_TOKEN!')
+USE_TLS = False

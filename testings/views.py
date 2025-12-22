@@ -1,12 +1,14 @@
 from django.contrib import messages
 from django.contrib.auth import login, logout
 from django.contrib.auth.decorators import login_required
+from django.core.cache import cache
 from django.http import JsonResponse, Http404
 from django.shortcuts import render, redirect, get_object_or_404
 from django.utils.decorators import method_decorator
 from django.views.generic import TemplateView
 
 from core.models import Question, QuestionLike, Answer, AnswerLike
+from testings.burst import BurstMixin
 from testings.forms import LoginForm
 
 
@@ -96,3 +98,42 @@ class LikeAnswerAPIView(TemplateView):
             'success': True,
             'id': answer_like.id,
         }, status=201 if created else 200)
+
+
+class DjangoCacheView(BurstMixin, TemplateView):
+    http_method_names = ['get', 'post']
+    limits = {'minute': 5, 'hour': 10, 'day': 50}
+    burst_codes = [400, 200]
+    burst_key = 'webinar_checkin'
+    burst_error_code = 429
+
+    # def get_burst_key(self, request, period):
+    #     """Переопределяем ключ для привязки к конкретному пользователю и вебинару"""
+    #     user_id = request.user.id
+    #     webinar_pk = self.kwargs.get('pk', 'unknown')
+    #     view_part = self.burst_key
+    #     return f'{view_part}:{user_id}:{webinar_pk}:{period}'
+
+    def get(self, request, key, *args, **kwargs):
+        value = cache.get(key)
+        if value:
+            return JsonResponse({
+                'success': True,
+                'value': value,
+            }, status=200)
+
+        raise Http404()
+
+    def post(self, request, key, *args, **kwargs):
+        value = request.POST.get('value', None)
+        if not value:
+            return JsonResponse({
+                'success': False,
+                'error': "Отсутствуют данные для записи в кеш"
+            }, status=400)
+
+        cache.set(key, value)
+        return JsonResponse({
+            'success': True,
+            'value': value,
+        }, status=200)
